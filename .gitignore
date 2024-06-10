@@ -1,6 +1,6 @@
 
 src/models/shape_predictor_68_face_landmarks_GTX.dat
-
+data/engagement_data.db
 
 # Byte-compiled / optimized / DLL files
 __pycache__/
