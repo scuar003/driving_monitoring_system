@@ -27,7 +27,14 @@ class EyeTracking:
     def get_gaze_data(self, frame):
         gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
         rects = self.detector(gray, 0)
-        gaze_data = {}
+        gaze_data = {
+            'road_focus': [],
+            'mirror_check': [],
+            'dashboard_check': [],
+            'off_road_gaze': [],
+            'prolonged_check': [],
+            'closed_eyes': []
+        }
 
         for rect in rects:
             shape = self.predictor(gray, rect)
@@ -36,10 +43,12 @@ class EyeTracking:
             left_eye = shape[42:48]
             right_eye = shape[36:42]
 
-            gaze_data = {
-                'road_focus': self.eye_aspect_ratio(left_eye),
-                'mirror_check': self.eye_aspect_ratio(right_eye)
-            }
+            left_ear = self.eye_aspect_ratio(left_eye)
+            right_ear = self.eye_aspect_ratio(right_eye)
+
+            gaze_data['road_focus'].append(left_ear)
+            gaze_data['mirror_check'].append(right_ear)
+            # Add more logic for other gaze data as required
 
         return gaze_data
 

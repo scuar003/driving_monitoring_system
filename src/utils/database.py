@@ -20,11 +20,14 @@ class Database:
     def log_gaze_data(self, gaze_data):
         cursor = self.connection.cursor()
         timestamp = time.strftime('%Y-%m-%d %H:%M:%S')
-        for gaze_direction, duration in gaze_data.items():
-            cursor.execute('''
-                INSERT INTO gaze_data (timestamp, gaze_direction, duration) 
-                VALUES (?, ?, ?)
-            ''', (timestamp, gaze_direction, duration))
+        for gaze_direction, durations in gaze_data.items():
+            if not isinstance(durations, list):
+                durations = [durations]
+            for duration in durations:
+                cursor.execute('''
+                    INSERT INTO gaze_data (timestamp, gaze_direction, duration) 
+                    VALUES (?, ?, ?)
+                ''', (timestamp, gaze_direction, float(duration)))
         self.connection.commit()
 
     def retrieve_gaze_data(self):
@@ -39,7 +42,7 @@ class Database:
 if __name__ == "__main__":
     db = Database()
     # Example usage
-    sample_data = {'road_focus': 5.0, 'mirror_check': 1.5}
+    sample_data = {'road_focus': [5.0], 'mirror_check': [1.5]}
     db.log_gaze_data(sample_data)
     print(db.retrieve_gaze_data())
     db.close()

@@ -41,6 +41,8 @@ def classify_closed_eyes(duration):
 def calculate_engagement_score(gaze_data):
     score = 0
     for point, durations in gaze_data.items():
+        if not isinstance(durations, list):
+            durations = [durations]
         criteria = ENGAGEMENT_CRITERIA.get(point)
         if criteria:
             for duration in durations:
@@ -53,5 +55,12 @@ def calculate_engagement_score(gaze_data):
                 score += result
     return score
 
-def calculate_engagement_percentage(score, max_possible_score):
-    return (score / max_possible_score) * 100
+def calculate_engagement_percentage(score, total_time):
+    if total_time == 0:
+        return 0  # Avoid division by zero
+    if (score / total_time) <= 0:
+        engagement_percentage = 0
+    if (score / total_time) > 0:
+        engagement_percentage = 100 - (score / total_time) * 100
+    
+    return engagement_percentage
