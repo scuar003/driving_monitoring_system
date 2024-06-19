@@ -1,38 +1,39 @@
 import sqlite3
+import os
 import time
 
 class Database:
     def __init__(self):
-        self.connection = sqlite3.connect('data/engagement_data.db')
-        self.create_table()
+        db_path = 'data/engagement_data.db'
+        os.makedirs(os.path.dirname(db_path), exist_ok=True)  # Ensure the directory exists
+        self.connection = sqlite3.connect(db_path)
+        self.create_tables()
 
-    def create_table(self):
+    def create_tables(self):
         cursor = self.connection.cursor()
         cursor.execute('''
             CREATE TABLE IF NOT EXISTS gaze_data (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                user TEXT,
                 timestamp TEXT,
-                gaze_direction TEXT,
-                duration REAL
+                gaze_direction TEXT
             )
         ''')
         self.connection.commit()
 
-    def log_gaze_data(self, gaze_data):
+    def log_gaze_data(self, username, gaze_data):
         cursor = self.connection.cursor()
         timestamp = time.strftime('%Y-%m-%d %H:%M:%S')
-        for gaze_direction, durations in gaze_data.items():
-            if not isinstance(durations, list):
-                durations = [durations]
-            for duration in durations:
-                cursor.execute('''
-                    INSERT INTO gaze_data (timestamp, gaze_direction, duration) 
-                    VALUES (?, ?, ?)
-                ''', (timestamp, gaze_direction, float(duration)))
+        for gaze_direction in gaze_data.get('gaze_direction', []):
+            cursor.execute('''
+                INSERT INTO gaze_data (user, timestamp, gaze_direction) 
+                VALUES (?, ?, ?)
+            ''', (username, timestamp, gaze_direction))
         self.connection.commit()
 
     def retrieve_gaze_data(self):
         cursor = self.connection.cursor()
-        cursor.execute('SELECT timestamp, gaze_direction, duration FROM gaze_data')
+        cursor.execute('SELECT user, timestamp, gaze_direction FROM gaze_data')
         data = cursor.fetchall()
         return data
 
@@ -41,8 +42,7 @@ class Database:
 
 if __name__ == "__main__":
     db = Database()
-    # Example usage
-    sample_data = {'road_focus': [5.0], 'mirror_check': [1.5]}
-    db.log_gaze_data(sample_data)
+    sample_data = {'gaze_direction': ['Right, UP', 'Left, DOWN']}
+    db.log_gaze_data('test_user', sample_data)
     print(db.retrieve_gaze_data())
     db.close()

@@ -14,7 +14,17 @@ ENGAGEMENT_CRITERIA = {
     'closed_eyes': {'positive': False, 'threshold': 0}
 }
 
-def classify_positive_gaze(duration, threshold):
+# Function to classify gaze directions
+def classify_gaze_direction(gaze_direction):
+    if 'Right' in gaze_direction or 'Left' in gaze_direction:
+        return 'off_road_gaze'
+    elif 'UP' in gaze_direction or 'DOWN' in gaze_direction:
+        return 'dashboard_check'
+    else:
+        return 'road_focus'
+
+# Function to classify gaze duration
+def classify_gaze_duration(duration, threshold):
     if threshold is None:
         return 1  # Always positive if no threshold
     elif duration < threshold:
@@ -24,43 +34,25 @@ def classify_positive_gaze(duration, threshold):
     else:
         return -1  # Negative
 
-def classify_negative_gaze(duration, threshold):
-    if duration > threshold:
-        return -1  # Negative
-    elif duration == threshold:
-        return -1 if threshold > 0 else 0  # Edge case: 0 seconds for `closed_eyes`
-    else:
-        return 1  # Positive
-
-def classify_closed_eyes(duration):
-    if duration > 0:
-        return -1  # Negative
-    else:
-        return 0  # Neutral if eyes are not closed at all
-
 def calculate_engagement_score(gaze_data):
     score = 0
-    for point, durations in gaze_data.items():
-        if not isinstance(durations, list):
-            durations = [durations]
-        criteria = ENGAGEMENT_CRITERIA.get(point)
-        if criteria:
-            for duration in durations:
-                if point == 'closed_eyes':
-                    result = classify_closed_eyes(duration)
-                elif criteria['positive']:
-                    result = classify_positive_gaze(duration, criteria['threshold'])
-                else:
-                    result = classify_negative_gaze(duration, criteria['threshold'])
-                score += result
-    return score
-
-def calculate_engagement_percentage(score, total_time):
-    if total_time == 0:
-        return 0  # Avoid division by zero
-    if (score / total_time) <= 0:
-        engagement_percentage = 0
-    if (score / total_time) > 0:
-        engagement_percentage = 100 - (score / total_time) * 100
+    max_possible_score = len(gaze_data['gaze_direction']) * 1  # Each direction is considered for scoring
+    if max_possible_score == 0:
+        return 0  # Prevent division by zero
     
+    for gaze_direction in gaze_data['gaze_direction']:
+        criteria_key = classify_gaze_direction(gaze_direction)
+        criteria = ENGAGEMENT_CRITERIA.get(criteria_key)
+        if criteria:
+            duration = 1  # Assume each gaze direction corresponds to a unit duration
+            result = classify_gaze_duration(duration, criteria['threshold'])
+            score += result
+
+    # Normalize the score to be within the range of 0 to 100
+    engagement_percentage = ((score + max_possible_score) / (2 * max_possible_score)) * 100
     return engagement_percentage
+
+def calculate_engagement_percentage(score, max_possible_score):
+    if max_possible_score == 0:
+        return 0  # Prevent division by zero
+    return (score / max_possible_score) * 100

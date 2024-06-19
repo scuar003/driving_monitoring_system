@@ -1,13 +1,54 @@
 import wx
 import cv2
 from core.eye_tracking import EyeTracking
-from core.engagement_score import calculate_engagement_score, calculate_engagement_percentage
+from core.engagement_score import calculate_engagement_score
 from utils.database import Database
+from utils.user_database import UserDatabase
+
+class LoginFrame(wx.Frame):
+    def __init__(self, parent, title):
+        super(LoginFrame, self).__init__(parent, title=title, size=(300, 200))
+        self.user_db = UserDatabase()
+        self.init_ui()
+        
+    def init_ui(self):
+        panel = wx.Panel(self)
+        
+        vbox = wx.BoxSizer(wx.VERTICAL)
+        
+        self.username_label = wx.StaticText(panel, label="Username:")
+        vbox.Add(self.username_label, flag=wx.LEFT | wx.TOP, border=10)
+        
+        self.username_text = wx.TextCtrl(panel)
+        vbox.Add(self.username_text, flag=wx.EXPAND | wx.LEFT | wx.RIGHT | wx.TOP, border=10)
+        
+        self.password_label = wx.StaticText(panel, label="Password:")
+        vbox.Add(self.password_label, flag=wx.LEFT | wx.TOP, border=10)
+        
+        self.password_text = wx.TextCtrl(panel, style=wx.TE_PASSWORD)
+        vbox.Add(self.password_text, flag=wx.EXPAND | wx.LEFT | wx.RIGHT | wx.TOP, border=10)
+        
+        self.login_button = wx.Button(panel, label="Login")
+        self.login_button.Bind(wx.EVT_BUTTON, self.on_login)
+        vbox.Add(self.login_button, flag=wx.ALIGN_CENTER | wx.TOP, border=20)
+        
+        panel.SetSizer(vbox)
+        
+    def on_login(self, event):
+        username = self.username_text.GetValue()
+        password = self.password_text.GetValue()
+        if self.user_db.validate_user(username, password):
+            self.Hide()
+            frame = CameraApp(None, "Camera App", username)
+            frame.Show()
+        else:
+            wx.MessageBox('Invalid username or password', 'Error', wx.OK | wx.ICON_ERROR)
 
 class CameraApp(wx.Frame):
-    def __init__(self):
-        super().__init__(None, title="Camera App", size=(800, 600))
+    def __init__(self, parent, title, username):
+        super(CameraApp, self).__init__(parent, title=title, size=(800, 600))
         
+        self.username = username
         self.panel = wx.Panel(self)
         
         self.camera_label = wx.StaticText(self.panel, label="Select Camera:")
@@ -58,13 +99,6 @@ class CameraApp(wx.Frame):
             self.video_display.SetBitmap(bitmap)
         
             gaze_data = self.eye_tracking.get_gaze_data(frame)
-            self.db.log_gaze_data(gaze_data)
-            engagement_score = calculate_engagement_score(gaze_data)
-            engagement_percentage = calculate_engagement_percentage(engagement_score, self.eye_tracking.max_score)
+            self.db.log_gaze_data(self.username, gaze_data)
+            engagement_percentage = calculate_engagement_score(gaze_data)
             print(f"Engagement Percentage: {engagement_percentage:.2f}%")
-        
-if __name__ == "__main__":
-    app = wx.App(False)
-    frame = CameraApp()
-    frame.Show(True)
-    app.MainLoop()

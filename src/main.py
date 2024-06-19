@@ -1,8 +1,8 @@
-from ui.main_ui import CameraApp
 import wx
+from ui.main_ui import LoginFrame
 
 if __name__ == "__main__":
     app = wx.App(False)
-    frame = CameraApp()
-    frame.Show(True)
+    login = LoginFrame(None, "Login")
+    login.Show()
     app.MainLoop()
