@@ -7,7 +7,7 @@ from utils.user_database import UserDatabase
 
 class LoginFrame(wx.Frame):
     def __init__(self, parent, title):
-        super(LoginFrame, self).__init__(parent, title=title, size=(300, 200))
+        super(LoginFrame, self).__init__(parent, title=title, size=(300, 250))
         self.user_db = UserDatabase()
         self.init_ui()
         
@@ -30,7 +30,11 @@ class LoginFrame(wx.Frame):
         
         self.login_button = wx.Button(panel, label="Login")
         self.login_button.Bind(wx.EVT_BUTTON, self.on_login)
-        vbox.Add(self.login_button, flag=wx.ALIGN_CENTER | wx.TOP, border=20)
+        vbox.Add(self.login_button, flag=wx.ALIGN_CENTER | wx.TOP, border=10)
+        
+        self.register_button = wx.Button(panel, label="Register")
+        self.register_button.Bind(wx.EVT_BUTTON, self.on_register)
+        vbox.Add(self.register_button, flag=wx.ALIGN_CENTER | wx.TOP, border=10)
         
         panel.SetSizer(vbox)
         
@@ -43,6 +47,14 @@ class LoginFrame(wx.Frame):
             frame.Show()
         else:
             wx.MessageBox('Invalid username or password', 'Error', wx.OK | wx.ICON_ERROR)
+    
+    def on_register(self, event):
+        username = self.username_text.GetValue()
+        password = self.password_text.GetValue()
+        if self.user_db.create_user(username, password):
+            wx.MessageBox('User registered successfully', 'Info', wx.OK | wx.ICON_INFORMATION)
+        else:
+            wx.MessageBox('Username already exists', 'Error', wx.OK | wx.ICON_ERROR)
 
 class CameraApp(wx.Frame):
     def __init__(self, parent, title, username):
