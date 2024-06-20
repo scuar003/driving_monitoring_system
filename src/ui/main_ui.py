@@ -4,6 +4,8 @@ from core.eye_tracking import EyeTracking
 from core.engagement_score import calculate_engagement_score
 from utils.database import Database
 from utils.user_database import UserDatabase
+from ui.background_panel import BackgroundPanel
+
 from sklearn.neighbors import KNeighborsClassifier
 import numpy as np
 import logging
@@ -95,35 +97,39 @@ class CalibrationFrame(wx.Frame):
 
 class LoginFrame(wx.Frame):
     def __init__(self, parent, title):
-        super(LoginFrame, self).__init__(parent, title=title, size=(300, 250))
+        super(LoginFrame, self).__init__(parent, title=title, size=(600, 600))
         self.user_db = UserDatabase()
         self.init_ui()
         
     def init_ui(self):
-        panel = wx.Panel(self)
-        
+        panel = BackgroundPanel(self, "data/VisionGuard.png")
         vbox = wx.BoxSizer(wx.VERTICAL)
         
-        self.username_label = wx.StaticText(panel, label="Username:")
-        vbox.Add(self.username_label, flag=wx.LEFT | wx.TOP, border=10)
+        inner_panel = wx.Panel(panel)
+        inner_vbox = wx.BoxSizer(wx.VERTICAL)
+
+        self.username_label = wx.StaticText(inner_panel, label="Username:")
+        inner_vbox.Add(self.username_label, flag=wx.LEFT | wx.TOP, border=10)
         
-        self.username_text = wx.TextCtrl(panel)
-        vbox.Add(self.username_text, flag=wx.EXPAND | wx.LEFT | wx.RIGHT | wx.TOP, border=10)
+        self.username_text = wx.TextCtrl(inner_panel)
+        inner_vbox.Add(self.username_text, flag=wx.EXPAND | wx.LEFT | wx.RIGHT | wx.TOP, border=10)
         
-        self.password_label = wx.StaticText(panel, label="Password:")
-        vbox.Add(self.password_label, flag=wx.LEFT | wx.TOP, border=10)
+        self.password_label = wx.StaticText(inner_panel, label="Password:")
+        inner_vbox.Add(self.password_label, flag=wx.LEFT | wx.TOP, border=10)
         
-        self.password_text = wx.TextCtrl(panel, style=wx.TE_PASSWORD)
-        vbox.Add(self.password_text, flag=wx.EXPAND | wx.LEFT | wx.RIGHT | wx.TOP, border=10)
+        self.password_text = wx.TextCtrl(inner_panel, style=wx.TE_PASSWORD)
+        inner_vbox.Add(self.password_text, flag=wx.EXPAND | wx.LEFT | wx.RIGHT | wx.TOP, border=10)
         
-        self.login_button = wx.Button(panel, label="Login")
+        self.login_button = wx.Button(inner_panel, label="Login")
         self.login_button.Bind(wx.EVT_BUTTON, self.on_login)
-        vbox.Add(self.login_button, flag=wx.ALIGN_CENTER | wx.TOP, border=10)
+        inner_vbox.Add(self.login_button, flag=wx.ALIGN_CENTER | wx.TOP, border=10)
         
-        self.register_button = wx.Button(panel, label="Register")
+        self.register_button = wx.Button(inner_panel, label="Register")
         self.register_button.Bind(wx.EVT_BUTTON, self.on_register)
-        vbox.Add(self.register_button, flag=wx.ALIGN_CENTER | wx.TOP, border=10)
+        inner_vbox.Add(self.register_button, flag=wx.ALIGN_CENTER | wx.TOP, border=10)
         
+        inner_panel.SetSizer(inner_vbox)
+        vbox.Add(inner_panel, flag=wx.EXPAND | wx.ALL, border=20)
         panel.SetSizer(vbox)
         
     def on_login(self, event):
@@ -131,10 +137,18 @@ class LoginFrame(wx.Frame):
         password = self.password_text.GetValue()
         if self.user_db.validate_user(username, password):
             self.Hide()
-            frame = CalibrationFrame(None, "Calibration", username)
+            frame = CameraApp(None, "Camera App", username)
             frame.Show()
         else:
             wx.MessageBox('Invalid username or password', 'Error', wx.OK | wx.ICON_ERROR)
+    
+    def on_register(self, event):
+        username = self.username_text.GetValue()
+        password = self.password_text.GetValue()
+        if self.user_db.create_user(username, password):
+            wx.MessageBox('User registered successfully', 'Info', wx.OK | wx.ICON_INFORMATION)
+        else:
+            wx.MessageBox('Username already exists', 'Error', wx.OK | wx.ICON_ERROR)
     
     def on_register(self, event):
         username = self.username_text.GetValue()
@@ -149,7 +163,7 @@ class CameraApp(wx.Frame):
         super(CameraApp, self).__init__(parent, title=title, size=(800, 600))
         
         self.username = username
-        self.panel = wx.Panel(self)
+        self.panel = BackgroundPanel(self, "data/VisionGuard.png")
         
         self.camera_label = wx.StaticText(self.panel, label="Select Camera:")
         self.camera_choice = wx.Choice(self.panel, choices=["Camera 1", "Camera 2"]) # Add more camera options as needed
