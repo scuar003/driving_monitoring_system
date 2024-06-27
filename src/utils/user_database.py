@@ -1,3 +1,4 @@
+# src/utils/user_database.py
 import sqlite3
 import hashlib
 import os
@@ -50,6 +51,14 @@ class UserDatabase:
     def verify_password(self, password, stored_password_hash):
         return self.hash_password(password) == stored_password_hash
 
+    def change_password(self, username, new_password):
+        cursor = self.connection.cursor()
+        password_hash = self.hash_password(new_password)
+        cursor.execute('''
+            UPDATE users SET password_hash = ? WHERE username = ?
+        ''', (password_hash, username))
+        self.connection.commit()
+
     def close(self):
         self.connection.close()
 
@@ -57,4 +66,6 @@ if __name__ == "__main__":
     db = UserDatabase()
     db.create_user('test_user', 'password123')
     print(db.validate_user('test_user', 'password123'))  # Output: True
+    db.change_password('test_user', 'new_password123')
+    print(db.validate_user('test_user', 'new_password123'))  # Output: True
     db.close()
