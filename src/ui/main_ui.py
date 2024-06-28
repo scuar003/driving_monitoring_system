@@ -337,28 +337,18 @@ class MainFrame(wx.Frame):
 
     def start_live_feed(self, event):
         selected_camera_index = self.camera_choice.GetSelection()
-        self.eye_tracking.start_tracking(selected_camera_index)
         self.live_feed_button.Disable()
         self.stop_feed_button.Enable()
+        self.eye_tracking.start_tracking(selected_camera_index)
+        
         self.timer.Start(1000 // 30)  # Update frame 30 times per second
 
-        # Open the video feed in a new window
-        self.video_frame = VideoFrame(self, "Live Feed")
-        self.video_frame.Bind(wx.EVT_CLOSE, self.on_video_frame_close)  # Bind close event to stop_live_feed
-        self.video_frame.Show()
 
     def stop_live_feed(self, event):
         self.timer.Stop()
         self.eye_tracking.stop_tracking()
         self.live_feed_button.Enable()
         self.stop_feed_button.Disable()
-
-        # Close the video feed window
-        if hasattr(self, 'video_frame') and self.video_frame:
-            self.video_frame.Destroy()
-
-    def on_video_frame_close(self, event):
-        self.stop_live_feed(None)  # Call stop_live_feed method when video frame is closed
 
     def update_frame(self, event):
         ret, frame = self.eye_tracking.cap.read()

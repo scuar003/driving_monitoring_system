@@ -94,6 +94,11 @@ class IrisTracker:
     def start_tracking(self, camera_index):
         self.cap = cv2.VideoCapture(camera_index)
         self.tracking = True
+
+        # Create a named window and set its size
+        cv2.namedWindow("Frame", cv2.WINDOW_NORMAL)
+        cv2.resizeWindow("Frame", 640, 480)  # Set window size to 640x480
+
         try:
             while self.tracking:
                 ret, frame = self.cap.read()
