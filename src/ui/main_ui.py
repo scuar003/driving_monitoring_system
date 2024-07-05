@@ -188,7 +188,7 @@ class MainFrame(wx.Frame):
         self.profile_button.SetFont(font)
         self.profile_button.SetBackgroundColour("#FFD700")  # Gold
         
-        self.dashboard_button = wx.Button(top_button_panel, label="📊 Dashboard ")
+        self.dashboard_button = wx.Button(top_button_panel, label="📊 Report ")
         self.dashboard_button.SetFont(font)
         self.dashboard_button.SetBackgroundColour("#FFD700")  # Gold
         
