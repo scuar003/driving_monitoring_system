@@ -19,16 +19,27 @@ class UserDatabase:
                 password_hash TEXT
             )
         ''')
+
+        cursor.execute('PRAGMA table_info(users)')
+        columns = [info[1] for info in cursor.fetchall()]
+        
+        if 'first_name' not in columns:
+            cursor.execute('ALTER TABLE users ADD COLUMN first_name TEXT')
+        if 'last_name' not in columns:
+            cursor.execute('ALTER TABLE users ADD COLUMN last_name TEXT')
+        if 'email' not in columns:
+            cursor.execute('ALTER TABLE users ADD COLUMN email TEXT')
+
         self.connection.commit()
 
-    def create_user(self, username, password):
+    def create_user(self, username, password, first_name, last_name, email):
         cursor = self.connection.cursor()
         password_hash = self.hash_password(password)
         try:
             cursor.execute('''
-                INSERT INTO users (username, password_hash) 
-                VALUES (?, ?)
-            ''', (username, password_hash))
+                INSERT INTO users (username, password_hash, first_name, last_name, email) 
+                VALUES (?, ?, ?, ?, ?)
+            ''', (username, password_hash, first_name, last_name, email))
             self.connection.commit()
             return True
         except sqlite3.IntegrityError:
@@ -44,6 +55,20 @@ class UserDatabase:
             stored_password_hash = result[0]
             return self.verify_password(password, stored_password_hash)
         return False
+
+    def get_user_info(self, username):
+        cursor = self.connection.cursor()
+        cursor.execute('''
+            SELECT first_name, last_name, email FROM users WHERE username = ?
+        ''', (username,))
+        return cursor.fetchone()
+
+    def delete_user(self, username):
+        cursor = self.connection.cursor()
+        cursor.execute('''
+            DELETE FROM users WHERE username = ?
+        ''', (username,))
+        self.connection.commit()
 
     def hash_password(self, password):
         return hashlib.sha256(password.encode()).hexdigest()
@@ -62,10 +87,3 @@ class UserDatabase:
     def close(self):
         self.connection.close()
 
-if __name__ == "__main__":
-    db = UserDatabase()
-    db.create_user('test_user', 'password123')
-    print(db.validate_user('test_user', 'password123'))  # Output: True
-    db.change_password('test_user', 'new_password123')
-    print(db.validate_user('test_user', 'new_password123'))  # Output: True
-    db.close()

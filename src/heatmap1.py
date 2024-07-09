@@ -7,7 +7,7 @@ import matplotlib.pyplot as plt
 import seaborn as sns
 
 # Load the predictor and the face detector
-predictor_path = "src/models/shape_predictor_68_face_landmarks_GTX.dat"
+predictor_path = "src/Models/shape_predictor_68_face_landmarks_GTX.dat"
 detector = dlib.get_frontal_face_detector()
 predictor = dlib.shape_predictor(predictor_path)
 
@@ -16,11 +16,6 @@ def midpoint(point1, point2):
 
 def get_eye_region(landmarks, eye_points):
     return [(landmarks.part(point).x, landmarks.part(point).y) for point in eye_points]
-
-def get_eye_center(landmarks, eye_points):
-    eye_region = [(landmarks.part(point).x, landmarks.part(point).y) for point in eye_points]
-    eye_center = midpoint(eye_region[0], eye_region[3])
-    return eye_center
 
 def get_iris_position(eye_region, frame, gray):
     mask = np.zeros((frame.shape[0], frame.shape[1]), dtype=np.uint8)
@@ -56,38 +51,6 @@ def get_iris_position(eye_region, frame, gray):
         return (iris_position[0] + min_x, iris_position[1] + min_y)
     return None
 
-def get_eye_to_eye_distance():
-    cap = cv2.VideoCapture(0)
-    while True:
-        _, frame = cap.read()
-        gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
-        faces = detector(gray)
-        
-        for face in faces:
-            landmarks = predictor(gray, face)
-            
-            # Get eye centers
-            left_eye_center = get_eye_center(landmarks, [36, 37, 38, 39, 40, 41])
-            right_eye_center = get_eye_center(landmarks, [42, 43, 44, 45, 46, 47])
-            
-            # Calculate the distance between the centers of the eyes
-            eye_distance_pixels = np.lihnalg.norm(np.array(left_eye_center) - np.array(right_eye_center))
-            
-            # Draw circles on the eye centers
-            cv2.circle(frame, left_eye_center, 2, (0, 255, 0), -1)
-            cv2.circle(frame, right_eye_center, 2, (0, 255, 0), -1)
-            
-            # Display the distance on the frame
-            cv2.putText(frame, f"Eye Distance: {eye_distance_pixels:.2f} pixels", (10, 30), cv2.FONT_HERSHEY_SIMPLEX, 0.7, (255, 0, 0), 2)
-        
-        cv2.imshow("Frame", frame)
-        key = cv2.waitKey(1)
-        if key == ord('c'): 
-            break
-    cap.release()
-    cv2.destroyAllWindows()
-    return eye_distance_pixels
-    
 def calibrate(calibration_points, detector, predictor):
     calibration_data = []
     cap = cv2.VideoCapture(0)
@@ -161,7 +124,7 @@ def check_screen_position(calibration_data, screen_position):
 
 # Example calibration points on the screen
 # Standard distances for calibration
-standard_distance_centers = get_eye_to_eye_distance
+standard_distance_centers = 80  
 standard_screen_distance = 50
 calibration_points = [(0, 0), (2560, 0), (0, 1440), (2560, 1440)]
 calibration_data = calibrate(calibration_points, detector, predictor)
