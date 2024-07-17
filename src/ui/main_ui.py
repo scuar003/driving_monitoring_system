@@ -1,6 +1,8 @@
-# src/ui/main_ui.py
 import wx
+import wx.media
 import cv2
+import os
+import datetime
 from core.gaze_detection import IrisTracker
 from core.pos_callibartion import perform_calibration
 from core.engagement_score import calculate_engagement_score
@@ -151,6 +153,10 @@ class MainFrame(wx.Frame):
         self.user_db = UserDatabase()
         self.panel = BackgroundPanel(self, "data/fiulogo.png")
 
+        # Initialize video recording variables
+        self.video_writer = None
+        self.video_file = None
+
         # Create top button panel
         top_button_panel = wx.Panel(self.panel, style=wx.TRANSPARENT_WINDOW)
         top_button_panel.SetBackgroundColour("#333333")  # Dark background for the top panel
@@ -189,15 +195,18 @@ class MainFrame(wx.Frame):
 
         self.home_panel = self.create_home_panel()
         self.profile_panel = self.create_profile_panel()
+        self.report_panel = self.create_report_panel()
         self.settings_panel = self.create_settings_panel()
 
         self.sizer = wx.BoxSizer(wx.VERTICAL)
         self.sizer.Add(top_button_panel, 0, wx.EXPAND | wx.ALL, 5)
         self.sizer.Add(self.home_panel, 1, wx.EXPAND | wx.ALL, 5)
         self.sizer.Add(self.profile_panel, 1, wx.EXPAND | wx.ALL, 5)
+        self.sizer.Add(self.report_panel, 1, wx.EXPAND | wx.ALL, 5)
         self.sizer.Add(self.settings_panel, 1, wx.EXPAND | wx.ALL, 5)
 
         self.profile_panel.Hide()
+        self.report_panel.Hide()
         self.settings_panel.Hide()
 
         self.panel.SetSizerAndFit(self.sizer)
@@ -206,6 +215,7 @@ class MainFrame(wx.Frame):
         self.db = Database()
         self.timer = wx.Timer(self)
         self.Bind(wx.EVT_TIMER, self.update_frame, self.timer)
+        self.Bind(wx.EVT_CLOSE, self.on_close)  # Bind the close event
 
     def create_home_panel(self):
         panel = wx.Panel(self.panel, style=wx.TRANSPARENT_WINDOW)
@@ -312,6 +322,43 @@ class MainFrame(wx.Frame):
 
         return panel
 
+    def create_report_panel(self):
+        panel = wx.Panel(self.panel, style=wx.TRANSPARENT_WINDOW)
+        panel.SetBackgroundColour(wx.Colour(255, 255, 255, 0))  # Transparent background
+
+        font = wx.Font(12, wx.FONTFAMILY_DEFAULT, wx.FONTSTYLE_NORMAL, wx.FONTWEIGHT_BOLD)
+
+        vbox = wx.BoxSizer(wx.VERTICAL)
+
+        self.video_choice = wx.Choice(panel, choices=self.get_video_files())
+        self.video_choice.SetBackgroundColour("#FFD700")  # Gold
+        self.video_choice.SetForegroundColour(wx.BLACK)
+        self.video_choice.Bind(wx.EVT_CHOICE, self.on_select_video)
+        vbox.Add(self.video_choice, flag=wx.LEFT | wx.TOP, border=10)
+
+        self.play_button = wx.Button(panel, label="Play Video")
+        self.play_button.SetFont(font)
+        self.play_button.SetBackgroundColour("#4CAF50")  # Green
+        self.play_button.SetForegroundColour(wx.WHITE)
+        self.play_button.Bind(wx.EVT_BUTTON, self.play_video)
+        vbox.Add(self.play_button, flag=wx.LEFT | wx.TOP, border=10)
+
+        panel.SetSizerAndFit(vbox)
+
+        return panel
+
+    def get_video_files(self):
+        return [f for f in os.listdir('.') if f.endswith('.avi')]
+
+    def on_select_video(self, event):
+        pass  # No action needed here for now
+
+    def play_video(self, event):
+        video_file = self.video_choice.GetString(self.video_choice.GetSelection())
+        if video_file:
+            video_player = VideoPlayer(self, video_file)
+            video_player.Show()
+
     def create_settings_panel(self):
         panel = wx.Panel(self.panel)
         panel.SetBackgroundColour(wx.Colour(255, 255, 255))  # Solid white background
@@ -366,22 +413,30 @@ class MainFrame(wx.Frame):
 
     def show_home(self, event):
         self.profile_panel.Hide()
+        self.report_panel.Hide()
         self.settings_panel.Hide()
         self.home_panel.Show()
         self.panel.Layout()
 
     def show_profile(self, event):
         self.home_panel.Hide()
+        self.report_panel.Hide()
         self.settings_panel.Hide()
         self.profile_panel.Show()
         self.panel.Layout()
 
     def show_dashboard(self, event):
-        pass  # Placeholder for dashboard functionality
+        self.update_video_files()  # Update the dropdown menu with the latest video files
+        self.home_panel.Hide()
+        self.profile_panel.Hide()
+        self.settings_panel.Hide()
+        self.report_panel.Show()
+        self.panel.Layout()
 
     def show_settings(self, event):
         self.home_panel.Hide()
         self.profile_panel.Hide()
+        self.report_panel.Hide()
         self.settings_panel.Show()
         self.panel.Layout()
 
@@ -409,10 +464,11 @@ class MainFrame(wx.Frame):
 
         self.timer.Start(1000 // 30)  # Update frame 30 times per second
 
-        # Open the video feed in a new window
-        self.video_frame = VideoFrame(self, "Live Feed")
-        self.video_frame.Bind(wx.EVT_CLOSE, self.on_video_frame_close)  # Bind close event to stop_live_feed
-        self.video_frame.Show()
+        # Start recording video
+        timestamp = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
+        self.video_file = f"recording_{timestamp}.avi"
+        fourcc = cv2.VideoWriter_fourcc(*'XVID')
+        self.video_writer = cv2.VideoWriter(self.video_file, fourcc, 20.0, (640, 480))  # Adjust resolution as needed
 
     def stop_live_feed(self, event):
         self.timer.Stop()
@@ -420,9 +476,13 @@ class MainFrame(wx.Frame):
         self.live_feed_button.Enable()
         self.stop_feed_button.Disable()
 
-        # Close the video feed window
-        if hasattr(self, 'video_frame') and self.video_frame:
-            self.video_frame.Destroy()
+        # Stop recording video
+        if self.video_writer:
+            self.video_writer.release()
+            self.video_writer = None
+
+        # Update the video files list in the report section
+        self.update_video_files()
 
     def on_video_frame_close(self, event):
         self.stop_live_feed(event)  # Call stop_live_feed when video frame is closed
@@ -434,7 +494,10 @@ class MainFrame(wx.Frame):
             height, width = frame.shape[:2]
             frame_rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
             bitmap = wx.Bitmap.FromBuffer(width, height, frame_rgb)
-            self.video_frame.video_display.SetBitmap(bitmap)
+
+            # Save frame to video file
+            if self.video_writer:
+                self.video_writer.write(frame)
 
             gaze_data = self.eye_tracking.get_gaze_data(frame)
             if gaze_data:
@@ -464,6 +527,24 @@ class MainFrame(wx.Frame):
             logging.error(f"Error flattening data: {e}")
         return flat_data
 
+    def update_video_files(self):
+        video_files = self.get_video_files()
+        self.video_choice.SetItems(video_files)
+
+    def on_close(self, event):
+        # Close video writer if still open
+        if self.video_writer:
+            self.video_writer.release()
+            self.video_writer = None
+
+        # Delete recorded video files
+        for video_file in self.get_video_files():
+            try:
+                os.remove(video_file)
+            except PermissionError:
+                logging.error(f"Failed to delete {video_file}. It may be in use.")
+        self.Destroy()
+
 class VideoFrame(wx.Frame):
     def __init__(self, parent, title):
         super(VideoFrame, self).__init__(parent, title=title, size=(800, 600))
@@ -473,8 +554,27 @@ class VideoFrame(wx.Frame):
         sizer.Add(self.video_display, 1, wx.EXPAND | wx.ALL, 5)
         self.panel.SetSizer(sizer)
 
-if __name__ == "__main__":
-    app = wx.App(False)
-    login = LoginFrame(None, "Login")
-    login.Show()
-    app.MainLoop()
+class VideoPlayer(wx.Frame):
+    def __init__(self, parent, video_file):
+        super(VideoPlayer, self).__init__(parent, title="Video Player", size=(800, 600))
+        self.panel = wx.Panel(self)
+        self.media_ctrl = wx.media.MediaCtrl(self.panel, style=wx.SIMPLE_BORDER, szBackend=wx.media.MEDIABACKEND_DIRECTSHOW)
+
+        sizer = wx.BoxSizer(wx.VERTICAL)
+        sizer.Add(self.media_ctrl, 1, wx.EXPAND | wx.ALL, 5)
+        self.panel.SetSizer(sizer)
+
+        self.Bind(wx.EVT_CLOSE, self.on_close)
+        self.video_file = video_file
+        self.play_video()
+
+    def play_video(self):
+        if self.media_ctrl.Load(self.video_file):
+            self.media_ctrl.Play()
+        else:
+            wx.MessageBox('Unable to load video file', 'Error', wx.OK | wx.ICON_ERROR)
+
+    def on_close(self, event):
+        self.media_ctrl.Stop()
+        self.Destroy()
+
