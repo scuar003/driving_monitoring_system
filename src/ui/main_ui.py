@@ -3,13 +3,14 @@ import wx.media
 import cv2
 import os
 import datetime
-from core.gaze_detection import IrisTracker
+from core.gaze_detection import EyeTracker
 from core.pos_callibartion import perform_calibration
 from core.engagement_score import calculate_engagement_score
 from utils.database import Database
 from utils.user_database import UserDatabase
 from ui.background_panel import BackgroundPanel
 import logging
+import subprocess
 
 logging.basicConfig(level=logging.DEBUG)
 
@@ -210,8 +211,9 @@ class MainFrame(wx.Frame):
         self.settings_panel.Hide()
 
         self.panel.SetSizerAndFit(self.sizer)
+        self.predictor_path = "src/models/shape_predictor_68_face_landmarks_GTX.dat"
 
-        self.eye_tracking = IrisTracker()
+        self.eye_tracking = EyeTracker(self.predictor_path)
         self.db = Database()
         self.timer = wx.Timer(self)
         self.Bind(wx.EVT_TIMER, self.update_frame, self.timer)
@@ -343,6 +345,13 @@ class MainFrame(wx.Frame):
         self.play_button.Bind(wx.EVT_BUTTON, self.play_video)
         vbox.Add(self.play_button, flag=wx.LEFT | wx.TOP, border=10)
 
+        self.generate_report_button = wx.Button(panel, label="Generate Report")
+        self.generate_report_button.SetFont(font)
+        self.generate_report_button.SetBackgroundColour("#2196F3")  # Blue
+        self.generate_report_button.SetForegroundColour(wx.WHITE)
+        self.generate_report_button.Bind(wx.EVT_BUTTON, self.generate_report)
+        vbox.Add(self.generate_report_button, flag=wx.LEFT | wx.TOP, border=10)
+
         panel.SetSizerAndFit(vbox)
 
         return panel
@@ -358,6 +367,16 @@ class MainFrame(wx.Frame):
         if video_file:
             video_player = VideoPlayer(self, video_file)
             video_player.Show()
+
+    def generate_report(self, event):
+        # Get the absolute path of the current directory
+        current_dir = os.path.dirname(os.path.abspath(__file__))
+        streamlit_app_path = os.path.join(current_dir, 'streamlit_app.py')
+    
+        if os.path.exists(streamlit_app_path):
+            subprocess.Popen(['streamlit', 'run', streamlit_app_path])
+        else:
+            wx.MessageBox(f"Error: File does not exist: {streamlit_app_path}", 'Error', wx.OK | wx.ICON_ERROR)
 
     def create_settings_panel(self):
         panel = wx.Panel(self.panel)
@@ -460,7 +479,10 @@ class MainFrame(wx.Frame):
         selected_camera_index = self.camera_choice.GetSelection()
         self.live_feed_button.Disable()
         self.stop_feed_button.Enable()
-        self.eye_tracking.start_tracking(selected_camera_index)
+        calibration_points = ['Top-Left', 'Top-Right', 'Bottom-Left', 'Bottom-Right', 'Left Mirror', 'Right Mirror', 'Rear Mirror', 'Dashboard']
+        calibration_data = self.eye_tracking.calibrate(calibration_points)
+        self.eye_tracking.start_tracking(calibration_data)
+        self.eye_tracking.save_gaze_data("data/gaze_data.csv")
 
         self.timer.Start(1000 // 30)  # Update frame 30 times per second
 
@@ -499,7 +521,7 @@ class MainFrame(wx.Frame):
             if self.video_writer:
                 self.video_writer.write(frame)
 
-            gaze_data = self.eye_tracking.get_gaze_data(frame)
+            gaze_data = self.eye_tracking.gaze_data(frame)
             if gaze_data:
                 logging.debug(f"Gaze data: {gaze_data}")
                 flattened_gaze_data = self.flatten_gaze_data(gaze_data)
